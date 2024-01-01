@@ -6,9 +6,7 @@ use std::io::Write; //provides stdout flush
 use std::collections::VecDeque;
 use std::collections::BTreeSet;
 
-//"undeclared crate or module"... does that mean it has to be in Cargo.toml?
-//use settimeout::set_timeout;
-//use futures::executor::block_on;
+use rand::Rng;
 
 const SIZE : usize = 10; //equality checks demand same type of integer, can cast
 
@@ -16,6 +14,8 @@ const SIZE : usize = 10; //equality checks demand same type of integer, can cast
 const PIXEL_DEFAULT : char = '.';
 const PIXEL_TREAT : char = '*';
 const PIXEL_SNAKE : char = 'X';
+
+const TREAT_CHANCE : f64 = 0.1;
 
 enum Direction {
     Up,
@@ -67,6 +67,7 @@ fn main() {
         
         //7) if not game over, 10% chance per frame of new treat in random location IF location 
         //is not occupied by snake (can use binary search provided by VecDeque...?)
+        generate_treats(&mut treats, &snake);
 
         //8) start at 1) with a blank grid
         game_grid = GRID_BLANK;
@@ -86,6 +87,7 @@ fn add_treats(game_grid: &mut [[char; SIZE]; SIZE], treats: &BTreeSet<(usize, us
     }
 }
 
+/* Switches pixels on grid corresponding to body of the snake. */
 fn add_snake(game_grid: &mut [[char; SIZE]; SIZE], snake: &VecDeque<(usize, usize)>) {
     for coords in snake.iter() {
         game_grid[coords.0][coords.1] = PIXEL_SNAKE;
@@ -174,7 +176,26 @@ fn update_snake_treats(snake: &mut VecDeque<(usize, usize)>, treats: &mut BTreeS
     }
 }
 
-//0 1 2 3 4 ^C6 7 8 9 
+fn generate_treats(treats: &mut BTreeSet<(usize, usize)>, snake: &VecDeque<(usize, usize)>) {
+    let to_generate : f64 = f64::try_from(rand::thread_rng().gen_range(0..99)).expect("int->f32 failed");
+    
+    //generation has a (TREAT_CHANCE)% chance of happening per frame
+    if to_generate  < 100.0 * TREAT_CHANCE {
+        
+        //if the randomly generated grid point overlaps with snake, pick another point
+        //problem: if snake gets big enough, more and more time will be spent in this loop
+        let new_treat = loop {
+            let random_row : usize = rand::thread_rng().gen_range(0..SIZE);
+            let random_col : usize = rand::thread_rng().gen_range(0..SIZE);
+            if !snake.contains(&(random_row, random_col)) {
+                break (random_row, random_col)
+            }
+        };
+        
+        treats.insert(new_treat);
+    }
+}
+
 //^C may disfigure final output... might not be any way to prevent it from showing up, but 
 //it would be nice to handle the SIGINT more gracefully (finish the current loop, break, etc)
 //the terminal cursor also gets in the way of the animation...
